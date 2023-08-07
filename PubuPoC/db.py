@@ -3,6 +3,7 @@ import os
 import sqlite3
 from collections import defaultdict
 from .page import Page, from_blob, to_blob
+from .book import Book
 
 
 class DB:
@@ -17,9 +18,11 @@ class DB:
 
         if os.path.isfile(path):
             if readonly:
-                self.conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+                self.conn = sqlite3.connect(
+                    f"file:{path}?mode=ro", uri=True, check_same_thread=False
+                )
             else:
-                self.conn = sqlite3.connect(path)
+                self.conn = sqlite3.connect(path, check_same_thread=False)
 
             self.load_fronts_ext()
             return
@@ -28,7 +31,7 @@ class DB:
             raise FileNotFoundError(f"The database: {path} does not exist!")
 
         # create a new database
-        self.conn = sqlite3.connect(path)
+        self.conn = sqlite3.connect(path, check_same_thread=False)
         self.create_tables()
         self.load_fronts_ext()
 
@@ -99,101 +102,47 @@ class DB:
 
     # Books
 
-    def search_book(self, _id: int) -> tuple or None:
+    def search_book(self, book_id: int) -> Book or None:
         """
         Query a book by its id
         """
 
-        res = self.conn("SELECT * from books WHERE id = ?", (_id,))
-        return res.fetchone()
+        res = self.conn.execute("SELECT * FROM books WHERE id = ?", (book_id,))
+        got = res.fetchone()
+        return got if got is None else Book.from_tuple(got)
 
-    def add_book(self, _id: int, book: dict, update: bool = False) -> None:
+    def get_max_book_id(self) -> int:
+        """Query the max book id"""
+        res = self.conn.execute("SELECT MAX(id) FROM books WHERE error = 0")
+        got = res.fetchone()[0]
+        return 0 if got is None else got
+
+    def update_books(self, books: list[Book], extend: bool = True) -> None:
         """
-        Add or update a book
+        Insert books into DB.
+        If `extend` is True, existing books are extended with unknown
+        metadata.
         """
+        if extend:
+            for book in books:
+                existing = self.search_book(book.book_id)
+                if existing is None:
+                    continue
+                book.merge(existing)
 
-        cols = [
-            ("documentId", 0, "documentId"),
-            ("title", "", "title"),
-            ("totalPage", 0, "pages"),
-            ("Author", "", "author"),
-            ("Cover", "", "cover"),
-            ("Price", 0, "price"),
-            ("Publisher", "", "publisher"),
-            ("Type", "", "type"),
-            ("Error", 0, "error"),
-        ]
-
-        # insert a book if not updating or book does not exist
-        if not update or self.search_book(_id) is None:
-            data = [_id]
-            for col in cols:
-                if col[0] in book:
-                    data.append(book[col[0]])
-                else:
-                    data.append(col[1])
-
-            with self.conn:
-                self.conn.execute(
-                    "INSERT INTO books VALUES("
-                    + ", ".join(["?"] * (len(cols) + 1))
-                    + ")",
-                    tuple(data),
-                )
-        # update book
-        else:
-            data = []
-            for col in cols:
-                if col[0] in book:
-                    data.append(col[2])
-                    data.append(book[col[0]])
-            data.append(_id)
-
-            with self.conn:
-                self.conn.execute(
-                    "UPDATE books SET "
-                    + ", ".join(["? = ?"] * len(data))
-                    + "WHERE id = ?",
-                    tuple(data),
-                )
-
-    def add_books(self, data: dict) -> None:
-        """
-        Add multiple books, much faster than `add_book`
-        """
-
-        cols = [
-            ("documentId", 0),
-            ("title", ""),
-            ("totalPage", 0),
-            ("Author", ""),
-            ("Cover", ""),
-            ("Price", 0),
-            ("Publisher", ""),
-            ("Type", ""),
-            ("Error", 0),
-        ]
-        values = []
-        for _id, _v in data.items():
-            book = [int(_id)]
-            for col in cols:
-                if col[0] in _v:
-                    book.append(_v[col[0]])
-                else:
-                    book.append(col[1])
-            values.append(tuple(book))
+        new_books = [book.to_tuple() for book in books]
 
         with self.conn:
             self.conn.executemany(
-                "INSERT INTO books VALUES(" + ", ".join(["?"] * 10) + ")", values
+                "REPLACE INTO books VALUES(" + ", ".join(["?"] * 10) + ")", new_books
             )
 
     # Pages
 
     def get_pages(self, doc_id: int) -> list[Page]:
         """
-        Query pages using the doc_id
-        Returns a list of Page objects
+        Query pages using the doc_id.
+        Returns a list of Page objects.
         """
         got = self.conn.execute(
             "SELECT pagesBlob FROM pages WHERE documentId = ?", (doc_id,)
@@ -206,23 +155,23 @@ class DB:
 
     def save_pages(self, pages: list[Page]) -> None:
         """
-        Save pages into DB and update last page id in states
-        pages must be sorted by page_id
+        Save pages into DB and update last page id in states.
+        pages must be sorted by page_id.
         """
         docs = defaultdict(list)
         doc_last_page = defaultdict(lambda: 0)
         ori_last_page_id = last_page_id = self.get_last_page_id()
 
-        for _p in pages:
-            if _p.error > 0:
+        for page in pages:
+            if page.error > 0:
                 continue
-            assert _p.page_id > doc_last_page[_p.doc_id]
-            assert _p.page_id > ori_last_page_id
+            assert page.page_id > doc_last_page[page.doc_id]
+            assert page.page_id > ori_last_page_id
 
-            doc_last_page[_p.doc_id] = _p.page_id
-            if _p.page_id > last_page_id:
-                last_page_id = _p.page_id
-            docs[_p.doc_id].append(_p)
+            doc_last_page[page.doc_id] = page.page_id
+            if page.page_id > last_page_id:
+                last_page_id = page.page_id
+            docs[page.doc_id].append(page)
 
         to_replace = []
         for doc_id, doc_pages in docs.items():

@@ -1,4 +1,4 @@
-# PUBU PoC
+# Pubu PoC
 
 ## Database
 
@@ -15,6 +15,8 @@
 10. error: Error code when fetching the book.
 
 ### `pages` table
+Store the pages of a book. The pages are stored in a compact format, which removes most metadata of the pages.
+
 1. documentId: The book's document id (int).
 2. pagesBlob: The encoded and compressed urls of the pages of a book (blob).
 
@@ -41,3 +43,11 @@ Records the latest page id recorded in `pages`.
 | id | data |
 | -- | ---- |
 | 0  | page id |
+
+## Raw pages
+Store the metadata of each page, including error pages. Each file `[i].bin` stores 1M pages, compressed by zlib. Each page is encoded as 16 bytes data, with the following structure:
+
+1. Byte 0 ~ 4: Page id
+2. Byte 4 ~ 8: Document id
+3. Byte 8 ~ 9: file extension (4 bits) || front of the domain name (4 bits)
+4. Byte 9 ~ 16: filename (or HTTP error code) padded with null bytes
