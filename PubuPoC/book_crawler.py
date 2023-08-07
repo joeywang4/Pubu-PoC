@@ -66,9 +66,9 @@ def parse_book(res1: Response, res2: Response, book_id: int) -> Book or None:
 class BookCrawler(Fetcher):
     """Crawl books"""
 
-    def __init__(self, db_path: str = "") -> None:
-        self.database = DB(db_path) if db_path != "" else DB()
+    def __init__(self, database: DB) -> None:
         super().__init__()
+        self.database = database
         self.url1 = (
             "https://www.pubu.com.tw/api/flex/3.0/book/{}?referralType=ORDER_ITEM"
         )
@@ -83,7 +83,6 @@ class BookCrawler(Fetcher):
     def checkpoint(self, result: list[Book], thread_id: int) -> None:
         """Save books into DB"""
         for book in result:
-            self.count += 1
             if book.error == 0 and book.book_id > self.workload.last_success_id:
                 self.workload.last_success_id = book.book_id
         self.database.update_books(result)

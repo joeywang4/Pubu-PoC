@@ -39,13 +39,15 @@ def to_input(page_id: int) -> str:
 class PageCrawler(Fetcher):
     """Crawl pages"""
 
-    def __init__(self, db_path: str = "", raw_path: str = "") -> None:
+    def __init__(self, database: DB, raw_pages: RawPages) -> None:
+        super().__init__()
         self.url = (
             "https://www.pubu.com.tw/api/flex/3.0/page/{}/1/reader/jpg?productId=1"
         )
-        self.database = DB(db_path) if db_path != "" else DB()
-        self.raw_pages = RawPages(raw_path) if raw_path != "" else RawPages()
-        super().__init__()
+        self.database = database
+        self.raw_pages = raw_pages
+        self.num_threads = 20
+        self.workload.job_size = 200
 
     def get_last_id(self) -> int:
         """Get last avail page id in DB"""
@@ -63,7 +65,6 @@ class PageCrawler(Fetcher):
         """Save pages into raw page records"""
         for page in result:
             self.raw_pages.write_page(page)
-            self.count += 1
             if page.error == 0 and page.page_id > self.workload.last_success_id:
                 self.workload.last_success_id = page.page_id
         self.raw_pages.sync_db(self.database)

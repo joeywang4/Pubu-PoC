@@ -3,10 +3,11 @@ import random
 import sys
 import threading
 import time
-from enum import Enum
 import requests
+from .util import Counter, Workload, Mode
 
 SPACES = 150
+
 
 class Worker:
     """
@@ -70,7 +71,9 @@ class Worker:
         if self.terminated:
             return
         self.terminated = True
-        print("[!] Received keyboard interrupt, terminating threads...".ljust(SPACES, " "))
+        print(
+            "[!] Received keyboard interrupt, terminating threads...".ljust(SPACES, " ")
+        )
 
     def spawn_threads(self) -> None:
         """Create threads"""
@@ -112,51 +115,6 @@ class Worker:
         self.clean_up()
 
 
-class Mode(Enum):
-    """Crawler execution modes"""
-
-    FIXED = 1
-    UPDATE = 2
-    SEARCH = 3
-
-
-class Workload:
-    """Generate jobs for threads"""
-
-    def __init__(self) -> None:
-        self.job_size = 50
-        self.mode = Mode.UPDATE
-        # next id to fetch
-        self.next_id = -1
-        self.end_id = -1
-        # state in update mode
-        self.last_success_id = -1
-        self.max_error = 100000
-
-    def clean_up(self) -> None:
-        """Reset states"""
-        self.next_id = self.end_id = self.last_success_id = -1
-
-    def get_job(self) -> tuple[int, int] or None:
-        """Get next job for a worker"""
-        if self.mode == Mode.FIXED:
-            assert self.end_id != -1
-            # get next job until `end_id`
-            if self.next_id >= self.end_id:
-                return None
-            next_job = (self.next_id, min(self.next_id + self.job_size, self.end_id))
-            self.next_id = next_job[1]
-            return next_job
-
-        if self.mode == Mode.UPDATE:
-            if self.next_id - self.last_success_id > self.max_error:
-                return None
-            self.next_id += self.job_size
-            return (self.next_id - self.job_size, self.next_id)
-
-        raise NotImplementedError(f"[!] Mode {self.mode} is not supported")
-
-
 class Fetcher(Worker):
     """Use worker to send GET requests"""
 
@@ -171,8 +129,8 @@ class Fetcher(Worker):
 
         # stats
         self.workload = Workload()
-        self.progress = [0 for _ in range(self.num_threads)]
-        self.count = 0
+        self.counter = Counter()
+        self.progress = []
 
     def get(
         self, url: str, session=requests, headers: dict = {}
@@ -207,7 +165,12 @@ class Fetcher(Worker):
             # stop retry loop for 200 and 4XX responses
             break
 
+        self.counter.inc()
         return res
+
+    def checkpoint(self, result, thread_id: int):
+        """Handle output from a job worker"""
+        return
 
     def get_job(self) -> tuple[int, int] or None:
         """Get a job from workload"""
@@ -219,27 +182,33 @@ class Fetcher(Worker):
 
     def clean_up(self) -> None:
         """Print stats and reset states"""
-        msg = f"[*] Fetched {self.count} requests."
-        msg += f" Last id is now {self.get_last_id()}."
+        msg = f"[*] Fetched {self.counter.count} requests."
+        if self.workload.mode == Mode.UPDATE:
+            msg += f" Last id is now {self.get_last_id()}."
         print(msg.ljust(SPACES, " "))
-
-        self.progress = [0 for _ in range(self.num_threads)]
-        self.count = 0
-        self.workload.clean_up()
 
         return super().clean_up()
 
     def status(self):
         """Report the current crawling status"""
-        progress = ", ".join(
-            [f"T{i + 1}-{self.progress[i]}" for i in range(self.num_threads)]
-        )
+        if self.workload.mode == Mode.FIXED:
+            progress = f"{self.counter.count}/{self.workload.end_id}"
+        else:
+            # for Mode.UPDATE
+            if self.num_threads <= 8:
+                progress = ", ".join(
+                    [f"T{i + 1}-{self.progress[i]}" for i in range(self.num_threads)]
+                )
+            else:
+                progress = f"ID - {min(self.progress)}"
+        progress += " (" + f"{self.counter.report():.2f}" + " req/s)"
         print("[*] Crawling: " + progress, end="\r", file=sys.stdout, flush=True)
 
     def start(self, mode: Mode = Mode.UPDATE, end_id: int = -1) -> None:
         """
-        Start crawling pages
+        Init states and start crawling
         """
+        self.progress = [0 for _ in range(self.num_threads)]
         self.workload.next_id = self.get_last_id() + 1
         self.workload.last_success_id = self.workload.next_id - 1
         self.workload.mode = mode
@@ -248,5 +217,6 @@ class Fetcher(Worker):
             self.workload.end_id = end_id
 
         print(f"[*] Start fetching from ID: {self.workload.next_id}")
+        self.counter.start()
         self.spawn_threads()
         self.join_threads()

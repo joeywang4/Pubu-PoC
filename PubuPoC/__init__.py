@@ -6,3 +6,5 @@ from .book import Book
 from .fetcher import Fetcher
 from .page_crawler import PageCrawler
 from .book_crawler import BookCrawler
+from .downloader import Downloader
+from .main import Main
