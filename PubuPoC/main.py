@@ -1,6 +1,6 @@
 """The main module"""
-from . import DB, RawPages, PageCrawler, BookCrawler, Downloader
-from .util import Converter, gen_pdf
+from . import DB, RawPages, PageCrawler, Searcher, BookCrawler, Downloader, Book
+from .util import Converter, gen_pdf, from_input
 
 
 class Main:
@@ -23,7 +23,24 @@ class Main:
         self.page_crawler = PageCrawler(self.database, self.raw_pages)
         self.book_crawler = BookCrawler(self.database)
         self.downloader = Downloader(output + "tmp/")
+        self.searcher = Searcher(verbose)
         self.converter = Converter(output + "tmp/", change_decode)
+
+    def get_hints(self, book: Book) -> list[tuple]:
+        """
+        Use sample pages as hints for search mode.
+        Returns [(page number, page id), ...]
+        """
+        got = self.book_crawler.get(self.book_crawler.url1.format(book.book_id))
+        try:
+            pages = got.json()["book"]["pages"]
+        except KeyError:
+            return {}
+
+        output = []
+        for page in pages:
+            output.append((page["pageNumber"], from_input(page["id"])))
+        return sorted(output, key=lambda page: page[0])
 
     def download(self, book_id: int) -> None:
         """Download a book"""
@@ -45,20 +62,28 @@ class Main:
             print("[*] Getting pages...")
 
         pages = self.database.get_pages(book.doc_id)
-        if len(pages) < book.pages:
-            lack = book.pages - len(pages)
+        urls = [page.to_url(self.database) for page in pages]
+        if len(urls) < book.pages:
+            lack = book.pages - len(urls)
             if self.verbose:
                 print(f"[!] Missing {lack} pages, continue in search mode")
-            raise NotImplementedError("Search mode is not implemented")
-        elif len(pages) > book.pages:
+            hints = self.get_hints(book)
+            urls = self.searcher.search(hints, book.doc_id, book.pages)
+            if urls is None or len(urls) < book.pages:
+                print("[!] Search failed")
+                return
+        elif len(urls) > book.pages:
             if self.verbose:
-                print(f"[!] Extra {len(pages) - book.pages} pages in local files.")
-            pages = pages[: book.pages]
+                print(f"[!] Extra {len(urls) - book.pages} pages in local files.")
+            urls = urls[: book.pages]
 
         # download pages
         if self.verbose:
-            print(f"[*] Downloading {len(pages)} pages...")
-        self.downloader.download([page.to_url(self.database) for page in pages])
+            print(f"[*] Downloading {len(urls)} pages...")
+        self.downloader.download(urls)
+        if self.downloader.terminated:
+            print("[!] Download page failed")
+            return
 
         # convert images
         if self.verbose:

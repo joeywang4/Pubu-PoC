@@ -95,7 +95,8 @@ class BookCrawler(Fetcher):
             for book_id in range(job[0], job[1]):
                 if self.terminated:
                     return output
-                self.progress[thread_id] = book_id
+                if len(self.progress) > thread_id:
+                    self.progress[thread_id] = book_id
                 url1 = self.url1.format(book_id)
                 url2 = self.url2.format(book_id)
                 got1 = self.get(url1, session)

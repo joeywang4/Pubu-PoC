@@ -91,7 +91,6 @@ class Worker:
 
     def clean_up(self) -> None:
         """Clean up existing jobs"""
-        self.terminated = False
         self.threads = []
 
     def join_threads(self) -> None:

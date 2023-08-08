@@ -7,7 +7,6 @@ class Mode(Enum):
 
     FIXED = 1
     UPDATE = 2
-    SEARCH = 3
 
 
 class Workload:

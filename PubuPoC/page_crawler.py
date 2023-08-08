@@ -1,39 +1,9 @@
 """Crawl pages"""
-import random
 from requests import Session
 from .fetcher import Fetcher
 from .page import Page, RawPages
 from .db import DB
-
-
-def to_input(page_id: int) -> str:
-    """Tanslate page_id for API query"""
-    if page_id < 10000:
-        return str(page_id)
-
-    digit_dict = {
-        "1": "1",
-        "4": "2",
-        "0": "3",
-        "8": "4",
-        "9": "5",
-        "2": "6",
-        "5": "7",
-        "7": "8",
-        "3": "9",
-        "6": "0",
-    }
-    str_id = str(page_id * 17 + 5)
-
-    out = ""
-    for char in str_id:
-        if char in digit_dict:
-            out += digit_dict[char]
-        else:
-            out += char
-    out = out[2:] + out[:2]
-    out = "".join([str(random.randint(0, 9)) + s for s in out])
-    return out
+from .util import to_input
 
 
 class PageCrawler(Fetcher):
@@ -77,7 +47,8 @@ class PageCrawler(Fetcher):
             for page_id in range(job[0], job[1]):
                 if self.terminated:
                     return output
-                self.progress[thread_id] = page_id
+                if len(self.progress) > thread_id:
+                    self.progress[thread_id] = page_id
                 url = self.url.format(to_input(page_id))
                 got = self.get(url, session)
 

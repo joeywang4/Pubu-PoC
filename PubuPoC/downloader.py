@@ -1,4 +1,5 @@
 """Book downloader"""
+import math
 import os
 from shutil import rmtree
 from requests import Session
@@ -15,7 +16,6 @@ class Downloader(Fetcher):
         self.ignored_errors = []
         self.urls = []
         self.num_threads = 25
-        self.workload.job_size = 10
 
     def clean_up(self) -> None:
         """Delete tmp files if terminated"""
@@ -32,6 +32,10 @@ class Downloader(Fetcher):
                 self.progress[thread_id] = i
                 url = self.urls[i]
                 got = self.get(url, session)
+
+                if got.status_code != 200:
+                    self.terminated = True
+                    return
 
                 with open(f"{self.path}/{str(i + 1).rjust(4, '0')}.jpg", "wb") as ofile:
                     for chunk in got.iter_content(chunk_size=8192):
@@ -53,4 +57,5 @@ class Downloader(Fetcher):
         self.rmdir()
         self.mkdir()
         self.urls = urls
+        self.workload.job_size = math.ceil(len(urls) / self.num_threads)
         self.start(Mode.FIXED, len(urls))
