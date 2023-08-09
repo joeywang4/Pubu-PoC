@@ -31,7 +31,7 @@ For example, the book URL `https://www.pubu.com.tw/ebook/999` indicates that thi
 ### Known issues
 
 1. Incorrect pages: sometimes books are decoded incorrectly, and the pages will look like tiles that are composed in a weird order. In this case, execute `main.py` with the `-c` option.
-2. Searching never ends: some book's pages are not continuous and can be difficult to search. Please be patient or [pre-fetch the pages](local-database) (also takes a lot of time!) before downloading the book.
+2. Searching never ends: some book's pages are not continuous and can be difficult to search. Please be patient or [pre-fetch the pages](#local-database) (also takes a lot of time!) before downloading the book.
 
 ## Local database
 
