@@ -7,6 +7,8 @@ from requests import Session
 from .fetcher import Fetcher
 from .util import to_input
 
+SPACES = 150
+
 
 class State(Enum):
     """State of the searcher"""
@@ -89,7 +91,8 @@ class Searcher(Fetcher):
                 self.state = State.LOWER
                 self.curr_id = self.hints[0][1] - 1
                 if self.verbose:
-                    print(f"[*] Switch to LOWER state, searching from {self.curr_id}")
+                    msg = f"[*] Switch to LOWER state, searching from {self.curr_id}"
+                    print(msg.ljust(SPACES, " "))
             else:
                 size = math.ceil(
                     (self.hints[-1][1] - self.hints[0][1]) / self.num_threads
@@ -101,14 +104,14 @@ class Searcher(Fetcher):
         if self.state == State.LOWER:
             if self.lower_found >= self.hints[0][0] - 1:
                 if self.lower_found != self.hints[0][0] - 1:
-                    print(
-                        "[!] Found too many lower pages: "
-                        + f"{self.lower_found} > {self.hints[0][0] - 1}"
-                    )
+                    msg = "[!] Found too many lower pages: "
+                    msg += f"{self.lower_found} > {self.hints[0][0] - 1}"
+                    print(msg.ljust(SPACES, " "))
                 self.state = State.UPPER
                 self.curr_id = self.hints[-1][1] + 1
                 if self.verbose:
-                    print(f"[*] Switch to UPPER state, searching from {self.curr_id}")
+                    msg = f"[*] Switch to UPPER state, searching from {self.curr_id}"
+                    print(msg.ljust(SPACES, " "))
             else:
                 size = 10
                 if self.hints[0][0] - 1 > 10 * self.num_threads:
@@ -121,13 +124,14 @@ class Searcher(Fetcher):
             # all uppers are found
             if self.upper_found >= self.total_pages - self.hints[-1][0]:
                 if self.upper_found != self.total_pages - self.hints[-1][0]:
-                    print(
-                        "[!] Found too many upper pages: "
-                        + f"{self.upper_found} > {self.total_pages - self.hints[-1][0]}"
+                    msg = "[!] Found too many upper pages: "
+                    msg += (
+                        f"{self.upper_found} > {self.total_pages - self.hints[-1][0]}"
                     )
+                    print(msg.ljust(SPACES, " "))
                 self.state = State.DONE
                 if self.verbose:
-                    print("[*] Done searching")
+                    print("[*] Done searching".ljust(SPACES, " "))
                 return None
 
             job_size = 50
@@ -144,11 +148,13 @@ class Searcher(Fetcher):
         return None
 
     def status(self):
-        progress = f"{self.state} - {self.curr_id}"
-        progress += f", got: {len(self.got)}"
-        progress += f" lower: {self.lower_found} upper: {self.upper_found}"
-        progress += " (" + f"{self.counter.report():.2f}" + " req/s)"
-        print("[*] Searching: " + progress, end="\r", file=sys.stdout, flush=True)
+        progress = f"Searching ID: {self.curr_id}"
+        if self.verbose:
+            progress += f", {self.state} got: {len(self.got)}"
+            progress += f" lower: {self.lower_found} upper: {self.upper_found}"
+        progress += f", missing: {self.total_pages - len(self.got)} pages"
+        progress += f" ({self.counter.report():.2f} req/s)"
+        print("[*] " + progress, end="\r", file=sys.stdout, flush=True)
 
     def clean_up(self) -> None:
         """Overwrite original clean_up"""
@@ -171,6 +177,7 @@ class Searcher(Fetcher):
         self.counter.start()
         self.spawn_threads()
         self.join_threads()
+        print(SPACES * " ", end="\r")
 
         urls = [page[1] for page in self.got]
         return urls

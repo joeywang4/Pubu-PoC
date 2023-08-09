@@ -1,5 +1,6 @@
 """Pubu PoC main file"""
 import argparse
+import sys
 from PubuPoC import Main
 
 
@@ -57,4 +58,7 @@ if __name__ == "__main__":
     )
 
     _args = parser.parse_args()
+    if _args.update is None and len(_args.books) == 0:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
     execute(_args)

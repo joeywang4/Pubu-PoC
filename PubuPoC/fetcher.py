@@ -181,10 +181,10 @@ class Fetcher(Worker):
 
     def clean_up(self) -> None:
         """Print stats and reset states"""
-        msg = f"[*] Fetched {self.counter.count} requests."
         if self.workload.mode == Mode.UPDATE:
+            msg = f"[*] Fetched {self.counter.count} requests."
             msg += f" Last id is now {self.get_last_id()}."
-        print(msg.ljust(SPACES, " "))
+            print(msg.ljust(SPACES, " "))
 
         return super().clean_up()
 
@@ -215,7 +215,9 @@ class Fetcher(Worker):
             assert end_id > self.workload.next_id
             self.workload.end_id = end_id
 
-        print(f"[*] Start fetching from ID: {self.workload.next_id}")
+        if mode == Mode.UPDATE:
+            print(f"[*] Start fetching from ID: {self.workload.next_id}")
         self.counter.start()
         self.spawn_threads()
         self.join_threads()
+        print(SPACES * " ", end="\r")

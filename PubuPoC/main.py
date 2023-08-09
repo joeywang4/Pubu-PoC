@@ -42,25 +42,23 @@ class Main:
             output.append((page["pageNumber"], from_input(page["id"])))
         return sorted(output, key=lambda page: page[0])
 
-    def download(self, book_id: int) -> None:
-        """Download a book"""
-        if self.verbose:
-            print(f"[*] Downloading book with book_id {book_id}")
+    def get_book(self, book_id: int) -> Book or None:
+        """Get metadata of a book"""
         book = self.database.search_book(book_id)
         if book is None or book.error > 0:
             if self.verbose:
-                cause = "not found in database" if book is None else "invalid"
+                cause = "not found in local database" if book is None else "invalid"
                 print(f"[!] Book is {cause}. Fetching online information...")
 
             book = self.book_crawler.job_worker([book_id, book_id + 1], 0)[0]
             if book.error > 0 or book.doc_id == 0 or book.pages == 0:
                 print(f"[!] Online info is invalid - book info: {book.to_tuple()}")
-                return
+                return None
 
-        if self.verbose:
-            print(f"[*] Found book: {book.to_tuple()}")
-            print("[*] Getting pages...")
+        return book
 
+    def get_pages(self, book: Book) -> list[str] or None:
+        """Get page urls from a book"""
         pages = self.database.get_pages(book.doc_id)
         urls = [page.to_url(self.database) for page in pages]
         if len(urls) < book.pages:
@@ -71,18 +69,42 @@ class Main:
             urls = self.searcher.search(hints, book.doc_id, book.pages)
             if urls is None or len(urls) < book.pages:
                 print("[!] Search failed")
-                return
+                return None
         elif len(urls) > book.pages:
             if self.verbose:
                 print(f"[!] Extra {len(urls) - book.pages} pages in local files.")
             urls = urls[: book.pages]
+        return urls
 
-        # download pages
+    def download_pages(self, urls: list[str]) -> bool:
+        """Download pages to tmp folder, return False if failed"""
         if self.verbose:
             print(f"[*] Downloading {len(urls)} pages...")
         self.downloader.download(urls)
         if self.downloader.terminated:
             print("[!] Download page failed")
+            return False
+        return True
+
+    def download(self, book_id: int) -> None:
+        """Download a book"""
+        if self.verbose:
+            print(f"[*] Downloading book with book_id {book_id}")
+
+        book = self.get_book(book_id)
+        if book is None:
+            return
+
+        if self.verbose:
+            print(f"[*] Found book: {book.to_tuple()}")
+            print("[*] Getting pages...")
+
+        urls = self.get_pages(book)
+        if urls is None:
+            return
+
+        # download pages
+        if not self.download_pages(urls):
             return
 
         # convert images
