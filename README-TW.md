@@ -3,6 +3,7 @@
 [English version](README.md)
 
 這份程式碼實作了公開於HITCON ZeroDay的[ZD-2023-00144](https://zeroday.hitcon.org/vulnerability/ZD-2023-00144)漏洞。攻擊者可以利用這個漏洞在沒有購買的狀態下將[pubu.com.tw](https://www.pubu.com.tw/)網站上的電子書下載下來。
+關於這個漏洞的更多資訊，請參考[這篇部落格文章](https://joeywang.tw/zh-TW/blog/pubu-vulnerability/)。
 
 **注意⚠️**: 這份程式碼只是用來證明漏洞的可行性，僅限於學術用途。下載具有版權的檔案可能會觸犯法律以及網站規範，**使用前請三思**。
 

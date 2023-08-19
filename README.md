@@ -3,6 +3,7 @@
 [中文版說明文件連結](README-TW.md)
 
 A proof-of-concept implementation of the vulnerability [ZD-2023-00144](https://zeroday.hitcon.org/vulnerability/ZD-2023-00144), which allows an attacker to download books from [pubu.com.tw](https://www.pubu.com.tw/) without buying them.
+For more information, please refer to this [blog post](https://joeywang.tw/blog/pubu-vulnerability/).
 
 **Please note⚠️**: This is only a demonstration and for educational purposes only. Downloading copyrighted materials may violate the law or the website's Terms of Service. **Use at your own risk.**
 

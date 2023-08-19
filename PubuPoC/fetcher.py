@@ -220,4 +220,4 @@ class Fetcher(Worker):
         self.counter.start()
         self.spawn_threads()
         self.join_threads()
-        print(SPACES * " ", end="\r")
+        print(SPACES * " ", end="\r", file=sys.stdout, flush=True)
