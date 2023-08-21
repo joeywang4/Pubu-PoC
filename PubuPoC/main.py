@@ -22,9 +22,9 @@ class Main:
         # sub-modules
         self.page_crawler = PageCrawler(self.database, self.raw_pages)
         self.book_crawler = BookCrawler(self.database)
-        self.downloader = Downloader(output + "tmp/")
+        self.downloader = Downloader(output + "/tmp/")
         self.searcher = Searcher(verbose)
-        self.converter = Converter(output + "tmp/", change_decode)
+        self.converter = Converter(output + "/tmp/", change_decode)
 
     def get_hints(self, book: Book) -> list[tuple]:
         """
