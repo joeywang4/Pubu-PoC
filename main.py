@@ -15,7 +15,7 @@ def execute(args):
         main.page_crawler.num_threads = args.threads
         main.book_crawler.num_threads = args.threads
         main.downloader.num_threads = args.threads
-        main.searcher = args.threads
+        main.searcher.num_threads = args.threads
 
     if args.update is not None:
         if args.update in ["all", "pages"]:
