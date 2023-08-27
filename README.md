@@ -7,6 +7,8 @@ For more information, please refer to this [blog post](https://joeywang.tw/blog/
 
 **Please note⚠️**: This is only a demonstration and for educational purposes only. Downloading copyrighted materials may violate the law or the website's Terms of Service. **Use at your own risk.**
 
+**Update (2023/08/27)**: This vulnerability is now fixed.
+
 ## Demo
 
 [![Watch the video](https://img.youtube.com/vi/f496UUln1z0/0.jpg)](https://youtu.be/f496UUln1z0)
